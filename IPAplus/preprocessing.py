@@ -7,11 +7,12 @@ import pandas as pd
 
 
 # load data
-db = pd.read_csv('/Users/user/Documents/dataset/ipapy2/DB/IPA_MS1.csv')
-dfMS1 = pd.read_csv("/Users/user/Documents/dataset/MTBLS2207/ipa_input/ms1/M3T-Std_Yeast_pos_DDA_3mz.csv")
+db = pd.read_csv('Dataset/Database/IPA_MS1.csv')
+dfMS1 = pd.read_csv("Dataset/MTBLS2207/input/ms1.csv")
+mzml_file = pymzml.run.Reader("Dataset/MTBLS2207/input/M3T-Std_Yeast_pos_DDA_3mz.mzML")
 
 # mzml data preprocessing
-df = pd.read_csv("/Users/user/Documents/dataset/MTBLS2207/mzmatch/M3T-Std_Yeast_pos_DDA_3mz.csv")
+df = pd.read_csv("Dataset/MTBLS2207/mzmatch.csv")
 group_label = 0
 group_labels = [0]
 for i in range(1, df.shape[0]):
@@ -23,11 +24,9 @@ df = df.sort_values(["cluster", "RT", "AVGMZ"], ascending=[True, True, False]).r
 df["ids"] = range(1, df.shape[0]+1)
 df = df[["ids", "cluster", "AVGMZ", "RT", "MAXINTENSITY"]] #use max intensity or average intensity
 df = df.rename(columns={"cluster": "rel.ids", "AVGMZ": "mzs", "RT": "RTs", "MAXINTENSITY": "Int"})
-df.to_csv("/Users/user/Documents/dataset/MTBLS2207/ipa_input/ms1/M3T-Std_Yeast_pos_DDA_3mz.csv", index=False)
-mzml_file = "/Users/user/Documents/dataset/MTBLS2207/mzml/M3T-Std_Yeast_pos_DDA_3mz.mzML"
-run = pymzml.run.Reader(mzml_file)
+df.to_csv("Dataset/MTBLS2207/input/ms1.csv", index=False)
 ms2_spectra = pd.DataFrame(columns=["id", "spectrum", "eV"])
-for n, spec in enumerate(run):
+for n, spec in enumerate(mzml_file):
     if spec.ms_level == 2:
         ms2 = []
         precursur_mz = spec.selected_precursors[0]["mz"]
@@ -48,7 +47,7 @@ for n, spec in enumerate(run):
             ms2.append(int(spec['collision energy']))
             ms2_spectra.loc[len(ms2_spectra)] = ms2
 ms2_spectra = ms2_spectra.sort_values(by=['id'])
-ms2_spectra.to_csv("/Users/user/Documents/dataset/MTBLS2207/ipa_input/ms2/M3T-Std_Yeast_pos_DDA_3mz.csv", index=False)
+ms2_spectra.to_csv("Dataset/MTBLS2207/input/ms2.csv", index=False)
 
 # add inchi to all candidates in IPA database
 for i in range(len(db.index)):
@@ -65,10 +64,10 @@ for i in range(len(db.index)):
             if inchi.startswith("Status:"):
                 inchi = np.nan
         db.iloc[i, 3] = inchi
-db.to_csv('/Users/user/Documents/dataset/ipapy2/DB/IPA_MS1.csv', index=False)
+db.to_csv('Dataset/Database/IPA_MS1.csv', index=False)
 
 # SIRIUS results
-sirius_results = pd.read_csv("/Users/user/Documents/dataset/MTBLS2207/sirius/compound_identifications_all.csv")
+sirius_results = pd.read_csv("Dataset/MTBLS2207/sirius/compound_identifications_all.csv")
 annotations_sirius = {}
 for feature in set(sirius_results["mappingFeatureId"]):
     candidate_structures = sirius_results.loc[sirius_results["mappingFeatureId"] == feature]
@@ -94,22 +93,19 @@ for feature in set(sirius_results["mappingFeatureId"]):
     annotation_sirius.adduct = annotation_sirius.adduct.str.split(pat='\[|\]').str[1].str.replace(" ", "")
     annotations_sirius[candidate_id[0]] = annotation_sirius
 annotations_sirius = dict(sorted(annotations_sirius.items()))
-with open("/Users/user/Documents/dataset/MTBLS2207/results/sirius/annotations_sirius.pkl", "wb") as fp:
+with open("Dataset/MTBLS2207/input/annotations_sirius.pkl", "wb") as fp:
     pickle.dump(annotations_sirius, fp)
 
 # MetFrag data preprocessing
-os.mkdir("/Users/user/Documents/dataset/MTBLS2207/metfrag_input/M3T-Std_Yeast_pos_DDA_3mz")
-os.mkdir("/Users/user/Documents/dataset/MTBLS2207/metfrag/M3T-Std_Yeast_pos_DDA_3mz")
-ms1_spec = pd.read_csv("/Users/user/Documents/dataset/MTBLS2207/ipa_input/ms1/M3T-Std_Yeast_pos_DDA_3mz.csv")
-mzml_file = '/Users/user/Documents/dataset/MTBLS2207/mzml/M3T-Std_Yeast_pos_DDA_3mz.mzML'
-run = pymzml.run.Reader(mzml_file)
+os.mkdir("Dataset/MTBLS2207/metfrag_input/M3T-Std_Yeast_pos_DDA_3mz")
+os.mkdir("Dataset/MTBLS2207/metfrag/M3T-Std_Yeast_pos_DDA_3mz")
 ms2_spectra = pd.DataFrame(columns=["id", "spectrum", "precursor", "RT", "max_int"])
-for n, spec in enumerate(run):
+for n, spec in enumerate(mzml_file):
     if spec.ms_level == 2:
         precursur_mz = spec.selected_precursors[0]["mz"]
         precursur_rt = spec.scan_time[0] * 60
-        spec_id = ms1_spec[["ids", "mzs", "RTs"]][
-            ms1_spec["mzs"].between(precursur_mz - 0.01, precursur_mz + 0.01) & ms1_spec["RTs"].between(
+        spec_id = dfMS1[["ids", "mzs", "RTs"]][
+            dfMS1["mzs"].between(precursur_mz - 0.01, precursur_mz + 0.01) & dfMS1["RTs"].between(
                 precursur_rt - 30, precursur_rt + 30)].copy()
         if len(spec_id.index) > 0:
             ms2_spectrum = spec.centroidedPeaks
@@ -140,12 +136,12 @@ for i in set(ms2_spectra.id):
 ms2_spectra = ms2_spectra.sort_values(by=['id', 'RT'])
 ms2_spectra = ms2_spectra.reset_index(drop=True)
 for d in set(ms2_spectra.iloc[:, 0]):
-    os.mkdir("/Users/user/Documents/dataset/MTBLS2207/metfrag_input/pos/" + f1[:-4] + "/" + str(d))
-    os.mkdir("/Users/user/Documents/dataset/MTBLS2207/metfrag/" + f1[:-4] + "/" + str(d))
+    os.mkdir("Dataset/MTBLS2207/metfrag_input/" + str(d))
+    os.mkdir("Dataset/MTBLS2207/metfrag/" + str(d))
     ms2_spectra_ = ms2_spectra.loc[ms2_spectra['id'] == d]
     for k in range(len(ms2_spectra_.index)):
         pklist = ms2_spectra_.iloc[k, 1]
-        pl_d = os.path.join("/Users/user/Documents/dataset/MTBLS2207/metfrag_input/pos", f1[:-4], str(d))
+        pl_d = os.path.join("Dataset/MTBLS2207/metfrag_input", str(d))
         with open(pl_d + '/peaklist_' + str(k + 1) + '.txt', 'w') as f2:
             for line in pklist:
                 f2.write(f"{line}\n")
@@ -165,17 +161,17 @@ for d in set(ms2_spectra.iloc[:, 0]):
                               "MetFragCandidateWriter = CSV\n"
                               "IonizedPrecursorMass = " + str(ms2_spectra_.iloc[k, 2]) + "\n",
                               "PeakListPath = " + pl_d + "/peaklist_" + str(k + 1) + ".txt\n",
-                              "ResultsPath = /Users/user/Documents/dataset/MTBLS2207/metfrag/" + f1[:-4] + "/" + str(ms2_spectra_.iloc[k, 0]) + "\n",
+                              "ResultsPath = Dataset/MTBLS2207/metfrag/" + str(ms2_spectra_.iloc[k, 0]) + "\n",
                               "SampleName = MetFragCL_Candidates_" + str(k + 1) + "\n"]
             f3.writelines(parameters_fix)
 
 # MetFrag results
 annotations_metfrag = {}
-d_names = os.listdir("/Users/user/Documents/dataset/MTBLS2207/metfrag/M3T-Std_Yeast_pos_DDA_3mz")
+d_names = os.listdir("Dataset/MTBLS2207/metfrag/M3T-Std_Yeast_pos_DDA_3mz")
 for d1 in d_names:
-    if not os.path.isdir("/Users/user/Documents/dataset/MTBLS2207/metfrag/M3T-Std_Yeast_pos_DDA_3mz/" + d1):
+    if not os.path.isdir("Dataset/MTBLS2207/metfrag/M3T-Std_Yeast_pos_DDA_3mz/" + d1):
         continue
-    root_ = "/Users/user/Documents/dataset/MTBLS2207/metfrag/M3T-Std_Yeast_pos_DDA_3mz/" + d1
+    root_ = "Dataset/MTBLS2207/metfrag/M3T-Std_Yeast_pos_DDA_3mz/" + d1
     f_names_ = os.listdir(root_)
     metfrag_results = pd.DataFrame(columns=["FragmenterScore", "Score", "InChI", "Identifier", "MolecularFormula", "SMILES", "InChIKey", "IUPACName"])
     for f1 in f_names_:
@@ -207,24 +203,23 @@ for d1 in d_names:
             metfrag_results.iloc[i, -1] = db["id"][db["inchi"].str.contains(metfrag_results.iloc[i, 2], na=False, regex=False)].iloc[0]
     annotations_metfrag[int(d1)] = metfrag_results
 annotations_metfrag = dict(sorted(annotations_metfrag.items()))
-with open("/Users/user/Documents/dataset/MTBLS2207/results/metfrag/annotations_metfrag.pkl", "wb") as fp:
+with open("Dataset/MTBLS2207/input/annotations_metfrag.pkl", "wb") as fp:
     pickle.dump(annotations_metfrag, fp)
 
 # ms-finder data preprocessing
-ms1_spec = pd.read_csv("/Users/user/Documents/dataset/MTBLS2207/ipa_input/ms1/M3T-Std_Yeast_pos_DDA_3mz.csv")
-for root, d_names, f_names in os.walk("/Users/user/Documents/dataset/MTBLS2207/metfrag_input/pos/M3T-Std_Yeast_pos_DDA_3mz"):
+for root, d_names, f_names in os.walk("Dataset/MTBLS2207/metfrag_input/M3T-Std_Yeast_pos_DDA_3mz"):
     for d1 in d_names:
-        ms1list = ms1_spec.loc[ms1_spec["rel.ids"] == ms1_spec.iloc[int(d1)-1, 1]]
+        ms1list = dfMS1.loc[dfMS1["rel.ids"] == dfMS1.iloc[int(d1)-1, 1]]
         ms1list["mz_int"] = ms1list["mzs"].astype(str) + " " + ms1list["Int"].astype(str)
         ms1list_ = '\n'.join(ms1list["mz_int"].values)
-        files = os.listdir("/Users/user/Documents/dataset/MTBLS2207/metfrag_input/M3T-Std_Yeast_pos_DDA_3mz/" + d1)
+        files = os.listdir("Dataset/MTBLS2207/metfrag_input/M3T-Std_Yeast_pos_DDA_3mz/" + d1)
         for f1 in files:
             if f1.endswith(".txt"):
-                with open("/Users/user/Documents/dataset/MTBLS2207/metfrag_input/M3T-Std_Yeast_pos_DDA_3mz/" + d1 + "/" + f1) as pl:
+                with open("Dataset/MTBLS2207/metfrag_input/M3T-Std_Yeast_pos_DDA_3mz/" + d1 + "/" + f1) as pl:
                     ms2list = pl.read()
                 k = f1[9:-4]
                 parameters_fix = ["NAME: yeast_pos_3_peak_" + d1 + "_" + k + "\n",
-                                  "PRECURSORMZ: " + str(ms1_spec.iloc[int(d1)-1, 2]) + "\n",
+                                  "PRECURSORMZ: " + str(dfMS1.iloc[int(d1)-1, 2]) + "\n",
                                   "PRECURSORTYPE: [M+H]+ \n",
                                   "IONMODE: Positive \n",
                                   "MSTYPE: MS1 \n",
@@ -233,19 +228,19 @@ for root, d_names, f_names in os.walk("/Users/user/Documents/dataset/MTBLS2207/m
                                   "MSTYPE: MS2 \n",
                                   "Num Peaks: " + str(len(ms2list.splitlines())) + "\n",
                                   ms2list]
-                with open("/Users/user/Documents/dataset/MTBLS2207/msfinder_input/pos/M3T-Std_Yeast_pos_DDA_3mz/yeast_pos_3_peak_" + d1 + "_" + k + ".mat", 'w') as f3:
+                with open("Dataset/MTBLS2207/msfinder_input/M3T-Std_Yeast_pos_DDA_3mz/yeast_pos_3_peak_" + d1 + "_" + k + ".mat", 'w') as f3:
                     f3.writelines(parameters_fix)
 
 # ms-finder results
-annotations_msfinder = {}
-msfinder = pd.read_csv('/Users/user/Documents/dataset/MTBLS2207/msfinder/M3T-Std_Yeast_pos_DDA_3mz.txt', sep="\t")
+msfinder = pd.read_csv('Dataset/MTBLS2207/msfinder/annotations_msfinder.txt', sep="\t")
 msfinder = msfinder.iloc[:, [2, 6, 7, 8, 10, 12, 13]]
 msfinder = msfinder.loc[msfinder["Formula"] != "Spectral DB search"]
 msfinder = msfinder.loc[msfinder["Total score"] > 0]
 msfinder = msfinder.reset_index(drop=True)
-msfinder["peak"] = msfinder["Title"].str.split("_", expand=True).iloc[:, 5]
+msfinder["peak"] = msfinder["Title"].str.split("_", expand=True).iloc[:, 4]
 peaks = list(set(msfinder["peak"]))
 peaks = sorted(peaks)
+annotations_msfinder = {}
 for peak in peaks:
     msfinder_peak = msfinder.loc[msfinder["peak"] == peak]
     msfinder_peak = msfinder_peak.iloc[:, :-1]
@@ -302,6 +297,6 @@ for peak in list(annotations_msfinder.keys()):
     annotations_msfinder[peak] = annotation_msfinder
     if len(annotation_msfinder.index) == 0:
         del annotations_msfinder[peak]
-with open("/Users/user/Documents/dataset/MTBLS2207/results/msfinder/annotations_msfinder.pkl", "wb") as fp:
+with open("Dataset/MTBLS2207/input/annotations_msfinder.pkl", "wb") as fp:
     pickle.dump(annotations_msfinder, fp)
 
