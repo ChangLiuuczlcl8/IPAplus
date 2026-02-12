@@ -5,7 +5,7 @@ remotes::install_github("https://github.com/andzajan/mzmatch.R.git",
 
 library(mzmatch.R)
 mzmatch.init(version.1=FALSE, memorysize = 5*1024)
-setwd("/Users/user/Documents/dataset/MSV000089047/mzml/Orbi_POS_DDA_MZML/") 
+setwd("Dataset/MTBLS2207/input/mzmatch/") 
 mzmatch.R.Setup("sample_setup.tsv", projectFolder = getwd())
 xseto <- xcmsSet(sampleList$filenames, method='centWave', ppm=5, peakwidth=c(5, 20),
                  snthresh=4, prefilter=c(1,100000), integrate=1, mzdiff=0.01, noise=100000,
